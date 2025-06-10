@@ -1,0 +1,391 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Temperature Monitor - Serverless Backend Infrastructure'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: 'prod'
+    Description: 'Environment name (dev, staging, prod)'
+  
+  CorsOrigin:
+    Type: String
+    Default: '*'
+    Description: 'CORS origin for API Gateway (use specific domain in production)'
+
+Resources:
+  # DynamoDB Table
+  TemperatureReadingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'TemperatureReadings-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+        - AttributeName: sensorName
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: SensorIndex
+          KeySchema:
+            - AttributeName: sensorName
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: TemperatureMonitor
+
+  # IAM Role for Lambda Functions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:GetItem
+                Resource:
+                  - !GetAtt TemperatureReadingsTable.Arn
+                  - !Sub '${TemperatureReadingsTable.Arn}/index/*'
+
+  # Lambda Function - Store Reading
+  StoreReadingFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'TemperatureMonitor-StoreReading-${Environment}'
+      Runtime: nodejs18.x
+      Handler: test-store.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            return {
+              statusCode: 200,
+              body: JSON.stringify({ message: 'Function not deployed yet' })
+            };
+          };
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref TemperatureReadingsTable
+          ENVIRONMENT: !Ref Environment
+      Timeout: 30
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: TemperatureMonitor
+
+  # Lambda Function - Get Readings
+  GetReadingsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'TemperatureMonitor-GetReadings-${Environment}'
+      Runtime: nodejs18.x
+      Handler: get-readings.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            return {
+              statusCode: 200,
+              body: JSON.stringify({ message: 'Function not deployed yet' })
+            };
+          };
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref TemperatureReadingsTable
+          ENVIRONMENT: !Ref Environment
+      Timeout: 30
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: TemperatureMonitor
+
+  # Lambda Function - List Sessions
+  ListSessionsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'TemperatureMonitor-ListSessions-${Environment}'
+      Runtime: nodejs18.x
+      Handler: list-sessions.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            return {
+              statusCode: 200,
+              body: JSON.stringify({ message: 'Function not deployed yet' })
+            };
+          };
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref TemperatureReadingsTable
+          ENVIRONMENT: !Ref Environment
+      Timeout: 30
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: TemperatureMonitor
+
+  # API Gateway
+  TemperatureMonitorApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub 'TemperatureMonitor-API-${Environment}'
+      Description: 'API for Temperature Monitor Application'
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # API Gateway - Readings Resource
+  ReadingsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref TemperatureMonitorApi
+      ParentId: !GetAtt TemperatureMonitorApi.RootResourceId
+      PathPart: readings
+
+  # API Gateway - Sessions Resource
+  SessionsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref TemperatureMonitorApi
+      ParentId: !GetAtt TemperatureMonitorApi.RootResourceId
+      PathPart: sessions
+
+  # API Gateway - Store Reading Method (POST)
+  StoreReadingMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref TemperatureMonitorApi
+      ResourceId: !Ref ReadingsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${StoreReadingFunction.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # API Gateway - Get Readings Method (GET)
+  GetReadingsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref TemperatureMonitorApi
+      ResourceId: !Ref ReadingsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetReadingsFunction.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # API Gateway - List Sessions Method (GET)
+  ListSessionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref TemperatureMonitorApi
+      ResourceId: !Ref SessionsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListSessionsFunction.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # CORS Options Methods
+  ReadingsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref TemperatureMonitorApi
+      ResourceId: !Ref ReadingsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-API-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: !Sub "'${CorsOrigin}'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  SessionsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref TemperatureMonitorApi
+      ResourceId: !Ref SessionsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-API-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: !Sub "'${CorsOrigin}'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Lambda Permissions for API Gateway
+  StoreReadingLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref StoreReadingFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${TemperatureMonitorApi}/*/*'
+
+  GetReadingsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetReadingsFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${TemperatureMonitorApi}/*/*'
+
+  ListSessionsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ListSessionsFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${TemperatureMonitorApi}/*/*'
+
+  # API Key
+  TemperatureMonitorApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub 'TemperatureMonitor-ApiKey-${Environment}'
+      Description: 'API Key for Temperature Monitor Application'
+      Enabled: true
+
+  # Usage Plan
+  TemperatureMonitorUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: !Sub 'TemperatureMonitor-UsagePlan-${Environment}'
+      Description: 'Usage plan for Temperature Monitor API'
+      Throttle:
+        BurstLimit: 100
+        RateLimit: 50
+      Quota:
+        Limit: 10000
+        Period: DAY
+      ApiStages:
+        - ApiId: !Ref TemperatureMonitorApi
+          Stage: !Ref Environment
+
+  # Usage Plan Key (Links API Key to Usage Plan)
+  TemperatureMonitorUsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref TemperatureMonitorApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref TemperatureMonitorUsagePlan
+
+  # API Gateway Deployment
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - StoreReadingMethod
+      - GetReadingsMethod
+      - ListSessionsMethod
+      - ReadingsOptionsMethod
+      - SessionsOptionsMethod
+    Properties:
+      RestApiId: !Ref TemperatureMonitorApi
+      StageName: !Ref Environment
+
+Outputs:
+  ApiGatewayUrl:
+    Description: 'API Gateway endpoint URL'
+    Value: !Sub 'https://${TemperatureMonitorApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+
+  DynamoDBTableName:
+    Description: 'DynamoDB table name'
+    Value: !Ref TemperatureReadingsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-TableName'
+
+  StoreReadingFunctionName:
+    Description: 'Store Reading Lambda function name'
+    Value: !Ref StoreReadingFunction
+
+  GetReadingsFunctionName:
+    Description: 'Get Readings Lambda function name'
+    Value: !Ref GetReadingsFunction
+
+  ListSessionsFunctionName:
+    Description: 'List Sessions Lambda function name'
+    Value: !Ref ListSessionsFunction
+
+  ApiKeyId:
+    Description: 'API Gateway API Key ID'
+    Value: !Ref TemperatureMonitorApiKey
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiKeyId'

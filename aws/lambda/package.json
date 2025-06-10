@@ -1,0 +1,21 @@
+{
+  "name": "temperature-monitor-lambda",
+  "version": "1.0.0",
+  "description": "Lambda functions for temperature monitoring application",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "zip -r lambda-functions.zip *.js package.json",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "temperature",
+    "monitoring",
+    "lambda",
+    "dynamodb"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.1000.0"
+  }
+}

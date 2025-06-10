@@ -1,0 +1,4 @@
+{
+  "httpMethod": "POST",
+  "body": "{\"sessionId\":\"test-session\",\"sensorName\":\"Sensor1\",\"temperature\":25.5,\"timestamp\":\"2025-06-09T23:59:00.000Z\"}"
+}
