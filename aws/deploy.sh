@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-STACK_NAME="TemperatureMonitor-$(date +%m%d%H%M)"
+STACK_NAME="TemperatureMonitor"
 ENVIRONMENT="prod"
 REGION="us-east-1"
 CORS_ORIGIN="*"  # Change to specific domain in production
