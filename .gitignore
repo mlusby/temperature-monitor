@@ -1,0 +1,36 @@
+# Environment variables and sensitive configuration
+.env
+config.local.js
+
+# API Keys and secrets
+*.key
+*.pem
+secrets/
+
+# Logs
+*.log
+logs/
+
+# Dependencies
+node_modules/
+.npm
+
+# Runtime files
+.DS_Store
+Thumbs.db
+
+# AWS deployment files (if they contain sensitive data)
+aws/lambda-functions*.zip
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backup files
+*~
+*.bak
+
+# Claude Code
+.claude/

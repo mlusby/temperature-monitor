@@ -379,8 +379,32 @@
             listSessions: `${API_BASE_URL}/sessions`
         };
         
-        // API Key - Replace with your actual API key after deployment
-        const API_KEY = 'YOUR_API_KEY_HERE'; // This will be replaced after deployment
+        // API Key - Retrieved securely at runtime
+        let API_KEY = null;
+        
+        // Load secure configuration
+        async function loadSecureConfig() {
+            try {
+                // Try to load from environment variables or secure endpoint
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    const config = await response.json();
+                    API_KEY = config.apiKey;
+                    return config;
+                }
+            } catch (error) {
+                console.warn('Could not load config from server:', error);
+            }
+            
+            // Fallback: prompt user for API key
+            API_KEY = prompt('Please enter your API key:');
+            if (!API_KEY) {
+                showAlert('API key is required for functionality', 'error');
+                return null;
+            }
+            
+            return { apiKey: API_KEY };
+        }
         
         // Request configuration
         const REQUEST_CONFIG = {
@@ -391,6 +415,14 @@
         
         // Make API request with retry logic
         async function makeAPIRequest(url, options = {}, retries = REQUEST_CONFIG.maxRetries) {
+            // Ensure API key is loaded
+            if (!API_KEY) {
+                await loadSecureConfig();
+                if (!API_KEY) {
+                    throw new Error('API key not available');
+                }
+            }
+            
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), REQUEST_CONFIG.timeout);
@@ -447,7 +479,10 @@
         ];
 
         // Initialize the application
-        function init() {
+        async function init() {
+            // Load secure configuration first
+            await loadSecureConfig();
+            
             // Set current session start time
             const now = new Date();
             const localISOTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
@@ -460,8 +495,10 @@
             // Initialize chart
             initChart();
             
-            // Load available sessions from API
-            refreshSessions();
+            // Load available sessions from API (only if API key is available)
+            if (API_KEY) {
+                refreshSessions();
+            }
             
             // Create backup of current state
             setInterval(createBackup, 30000); // Backup every 30 seconds if data exists
