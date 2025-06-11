@@ -1,5 +1,5 @@
 // Secure configuration for Temperature Monitor
-// This file should NOT be committed to version control
+// This file is safe to commit - it only reads from environment variables
 
 const CONFIG = {
     // API Configuration

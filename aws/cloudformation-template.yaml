@@ -325,6 +325,7 @@ Resources:
   # Usage Plan
   TemperatureMonitorUsagePlan:
     Type: AWS::ApiGateway::UsagePlan
+    DependsOn: ApiDeployment
     Properties:
       UsagePlanName: !Sub 'TemperatureMonitor-UsagePlan-${Environment}'
       Description: 'Usage plan for Temperature Monitor API'
