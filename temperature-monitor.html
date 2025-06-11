@@ -371,13 +371,9 @@
         let currentUnit = 'celsius'; // 'celsius' or 'fahrenheit'
         let sessionStartTime = null; // Base time for the session
         
-        // API Configuration - Replace with your actual API Gateway URL after deployment
-        const API_BASE_URL = 'https://pnx7qs4uve.execute-api.us-east-1.amazonaws.com/prod';
-        const API_ENDPOINTS = {
-            storeReading: `${API_BASE_URL}/readings`,
-            getReadings: `${API_BASE_URL}/readings`,
-            listSessions: `${API_BASE_URL}/sessions`
-        };
+        // API Configuration - Retrieved securely at runtime
+        let API_BASE_URL = null;
+        let API_ENDPOINTS = null;
         
         // API Key - Retrieved securely at runtime
         let API_KEY = null;
@@ -390,20 +386,38 @@
                 if (response.ok) {
                     const config = await response.json();
                     API_KEY = config.apiKey;
+                    API_BASE_URL = config.apiUrl;
+                    
+                    // Set up API endpoints
+                    API_ENDPOINTS = {
+                        storeReading: `${API_BASE_URL}/readings`,
+                        getReadings: `${API_BASE_URL}/readings`,
+                        listSessions: `${API_BASE_URL}/sessions`
+                    };
+                    
                     return config;
                 }
             } catch (error) {
                 console.warn('Could not load config from server:', error);
             }
             
-            // Fallback: prompt user for API key
+            // Fallback: prompt user for API configuration
             API_KEY = prompt('Please enter your API key:');
-            if (!API_KEY) {
-                showAlert('API key is required for functionality', 'error');
+            API_BASE_URL = prompt('Please enter your API Gateway URL:');
+            
+            if (!API_KEY || !API_BASE_URL) {
+                showAlert('API key and URL are required for functionality', 'error');
                 return null;
             }
             
-            return { apiKey: API_KEY };
+            // Set up API endpoints
+            API_ENDPOINTS = {
+                storeReading: `${API_BASE_URL}/readings`,
+                getReadings: `${API_BASE_URL}/readings`,
+                listSessions: `${API_BASE_URL}/sessions`
+            };
+            
+            return { apiKey: API_KEY, apiUrl: API_BASE_URL };
         }
         
         // Request configuration
