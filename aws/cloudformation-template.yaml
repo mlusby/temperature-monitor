@@ -324,7 +324,7 @@ Resources:
             ResponseParameters:
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
               method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: !Sub "'${CorsOrigin}'"
+              method.response.header.Access-Control-Allow-Origin: "'http://localhost:3000'"
               method.response.header.Access-Control-Allow-Credentials: "'false'"
         RequestTemplates:
           application/json: '{"statusCode": 200}'
@@ -350,7 +350,7 @@ Resources:
             ResponseParameters:
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
               method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Origin: "'http://localhost:3000'"
               method.response.header.Access-Control-Allow-Credentials: "'false'"
         RequestTemplates:
           application/json: '{"statusCode": 200}'
@@ -432,7 +432,7 @@ Resources:
     Properties:
       RestApiId: !Ref TemperatureMonitorApi
       StageName: !Ref Environment
-      Description: !Sub 'Deployment for CORS fix - ${AWS::StackName} at ${AWS::Region}'
+      Description: !Sub 'Deployment for CORS hardcoded localhost - ${AWS::StackName} at ${AWS::Region} - v4'
 
 Outputs:
   ApiGatewayUrl:
