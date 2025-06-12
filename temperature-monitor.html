@@ -890,8 +890,10 @@
             // Initialize chart
             initChart();
             
-            // Load available sessions from API
-            refreshSessions();
+            // Load available sessions from API (with delay to ensure token is ready)
+            setTimeout(() => {
+                refreshSessions();
+            }, 1000);
             
             // Create backup of current state
             setInterval(createBackup, 30000); // Backup every 30 seconds if data exists
