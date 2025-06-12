@@ -9,7 +9,7 @@ set -e
 STACK_NAME="TemperatureMonitor"
 ENVIRONMENT="prod"
 REGION="us-east-1"
-CORS_ORIGIN="*"  # Change to specific domain in production
+CORS_ORIGIN="http://localhost:3000"  # For local development
 
 echo "🚀 Deploying Temperature Monitor Backend..."
 echo "Stack Name: $STACK_NAME"
