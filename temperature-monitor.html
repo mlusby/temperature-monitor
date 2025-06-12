@@ -803,8 +803,18 @@
         
         // Make API request with retry logic
         async function makeAPIRequest(url, options = {}, retries = REQUEST_CONFIG.maxRetries) {
+            // DEBUGGING: Log the authentication state
+            console.log('🔐 AUTH DEBUG - makeAPIRequest called:', {
+                url: url,
+                hasIdToken: !!idToken,
+                idTokenLength: idToken ? idToken.length : 0,
+                idTokenStart: idToken ? idToken.substring(0, 20) + '...' : 'null',
+                method: options.method || 'GET'
+            });
+            
             // Ensure user is authenticated
             if (!idToken) {
+                console.error('❌ AUTH ERROR: No idToken available');
                 throw new Error('User not authenticated');
             }
             
@@ -819,6 +829,18 @@
                     ...options.headers
                 };
                 
+                // DEBUGGING: Log the exact request being made
+                console.log('📤 REQUEST DEBUG - Making API call:', {
+                    url: url,
+                    method: options.method || 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${headers.Authorization.substring(0, 20)}...`,
+                        'Content-Type': headers['Content-Type']
+                    },
+                    hasBody: !!options.body,
+                    bodyLength: options.body ? options.body.length : 0
+                });
+                
                 const response = await fetch(url, {
                     ...options,
                     headers,
@@ -827,22 +849,42 @@
                 
                 clearTimeout(timeoutId);
                 
-                // Log response details for debugging
-                console.log('API Response:', {
+                // DEBUGGING: Enhanced response logging
+                console.log('📥 RESPONSE DEBUG - API Response received:', {
+                    url: response.url,
                     status: response.status,
                     statusText: response.statusText,
-                    url: response.url,
-                    ok: response.ok
+                    ok: response.ok,
+                    headers: {
+                        'content-type': response.headers.get('content-type'),
+                        'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
+                        'access-control-allow-credentials': response.headers.get('access-control-allow-credentials')
+                    }
                 });
+                
+                // If response is not ok, log the response body
+                if (!response.ok) {
+                    try {
+                        const errorText = await response.clone().text();
+                        console.error('❌ RESPONSE ERROR BODY:', errorText);
+                    } catch (e) {
+                        console.error('❌ Could not read error response body:', e);
+                    }
+                }
                 
                 return response;
                 
             } catch (error) {
-                console.error(`API request failed (${REQUEST_CONFIG.maxRetries - retries + 1}/${REQUEST_CONFIG.maxRetries}):`, error);
+                console.error(`❌ REQUEST FAILED (${REQUEST_CONFIG.maxRetries - retries + 1}/${REQUEST_CONFIG.maxRetries}):`, {
+                    error: error.message,
+                    name: error.name,
+                    url: url,
+                    retries: retries
+                });
                 
                 // Handle network errors and timeouts
                 if (retries > 0 && (error.name === 'AbortError' || error.name === 'TypeError' || error.name === 'NetworkError')) {
-                    console.log(`Retrying in ${REQUEST_CONFIG.retryDelay}ms...`);
+                    console.log(`🔄 Retrying in ${REQUEST_CONFIG.retryDelay}ms...`);
                     await new Promise(resolve => setTimeout(resolve, REQUEST_CONFIG.retryDelay));
                     return makeAPIRequest(url, options, retries - 1);
                 }
@@ -1404,20 +1446,78 @@
         // Load available sessions from API
         async function loadAvailableSessions() {
             try {
+                console.log('🔍 SESSIONS DEBUG - Starting loadAvailableSessions:', {
+                    endpoint: API_ENDPOINTS.listSessions,
+                    hasEndpoints: !!API_ENDPOINTS,
+                    hasIdToken: !!idToken,
+                    idTokenValid: idToken ? (idToken.length > 100) : false,
+                    currentTime: new Date().toISOString()
+                });
+                
+                // Add a small delay to ensure token is fully ready
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                console.log('🔍 SESSIONS DEBUG - About to make request with token:', {
+                    tokenLength: idToken ? idToken.length : 0,
+                    tokenPreview: idToken ? idToken.substring(0, 50) + '...' : 'null'
+                });
+                
                 const response = await makeAPIRequest(API_ENDPOINTS.listSessions);
                 
+                console.log('🔍 SESSIONS DEBUG - Raw response received:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok,
+                    url: response.url,
+                    type: response.type,
+                    headers: {
+                        'content-type': response.headers.get('content-type'),
+                        'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
+                        'access-control-allow-credentials': response.headers.get('access-control-allow-credentials'),
+                        'access-control-allow-methods': response.headers.get('access-control-allow-methods'),
+                        'access-control-allow-headers': response.headers.get('access-control-allow-headers')
+                    }
+                });
+                
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`API Error: ${errorData.error || response.statusText}`);
+                    console.error('❌ SESSIONS ERROR - Response not ok:', {
+                        status: response.status,
+                        statusText: response.statusText
+                    });
+                    
+                    try {
+                        const errorText = await response.text();
+                        console.error('❌ SESSIONS ERROR - Response body:', errorText);
+                        
+                        let errorData;
+                        try {
+                            errorData = JSON.parse(errorText);
+                        } catch (e) {
+                            errorData = { error: errorText };
+                        }
+                        
+                        throw new Error(`API Error: ${errorData.error || response.statusText}`);
+                    } catch (parseError) {
+                        console.error('❌ SESSIONS ERROR - Could not parse error response:', parseError);
+                        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                    }
                 }
                 
                 const result = await response.json();
-                console.log('Available sessions:', result);
+                console.log('✅ SESSIONS SUCCESS - Available sessions loaded:', {
+                    sessionCount: result.sessions ? result.sessions.length : 0,
+                    result: result
+                });
                 
                 return result.sessions || [];
                 
             } catch (error) {
-                console.error('Error loading available sessions:', error);
+                console.error('❌ SESSIONS FAILED - Error loading available sessions:', {
+                    error: error.message,
+                    name: error.name,
+                    stack: error.stack,
+                    cause: error.cause
+                });
                 return [];
             }
         }
