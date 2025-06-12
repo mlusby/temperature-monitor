@@ -295,7 +295,7 @@
                     </div>
                     <div class="control-group">
                         <label for="signUpPassword">Password:</label>
-                        <input type="password" id="signUpPassword" placeholder="Password (8+ chars)">
+                        <input type="password" id="signUpPassword" placeholder="8+ chars, uppercase, lowercase, number">
                     </div>
                     <div class="control-group">
                         <label>&nbsp;</label>
@@ -304,6 +304,30 @@
                     <div class="control-group">
                         <label>&nbsp;</label>
                         <button onclick="hideSignUp()" class="btn-secondary">Back to Sign In</button>
+                    </div>
+                </div>
+            </div>
+            <div id="verifySection" style="display: none;">
+                <div class="control-row">
+                    <h4>Verify Your Email</h4>
+                    <p>Please check your email and enter the 6-digit verification code:</p>
+                </div>
+                <div class="control-row">
+                    <div class="control-group">
+                        <label for="verifyEmail">Email:</label>
+                        <input type="email" id="verifyEmail" readonly>
+                    </div>
+                    <div class="control-group">
+                        <label for="verifyCode">Verification Code:</label>
+                        <input type="text" id="verifyCode" placeholder="123456" maxlength="6">
+                    </div>
+                    <div class="control-group">
+                        <label>&nbsp;</label>
+                        <button onclick="confirmSignUp()" class="btn-success">Verify Account</button>
+                    </div>
+                    <div class="control-group">
+                        <label>&nbsp;</label>
+                        <button onclick="resendVerificationCode()" class="btn-secondary">Resend Code</button>
                     </div>
                 </div>
             </div>
@@ -496,6 +520,113 @@
         
         function hideSignUp() {
             document.getElementById('signUpSection').style.display = 'none';
+            document.getElementById('verifySection').style.display = 'none';
+        }
+        
+        async function confirmSignUp() {
+            const email = document.getElementById('verifyEmail').value.trim();
+            const code = document.getElementById('verifyCode').value.trim();
+            
+            if (!code) {
+                showAlert('Please enter the verification code', 'error');
+                return;
+            }
+            
+            if (!COGNITO_CONFIG) {
+                showAlert('Cognito configuration not loaded', 'error');
+                return;
+            }
+            
+            try {
+                AWS.config.region = COGNITO_CONFIG.region;
+                const cognitoidentityserviceprovider = new AWS.CognitoIdentityServiceProvider();
+                
+                const params = {
+                    ClientId: COGNITO_CONFIG.clientId,
+                    Username: email,
+                    ConfirmationCode: code
+                };
+                
+                await cognitoidentityserviceprovider.confirmSignUp(params).promise();
+                showAlert('Account verified successfully! You can now sign in.', 'success');
+                
+                // Hide verification section and show sign in
+                document.getElementById('verifySection').style.display = 'none';
+                document.getElementById('authEmail').value = email; // Pre-fill email
+                
+            } catch (error) {
+                console.error('Confirmation error:', error);
+                
+                let errorMessage = 'Verification failed';
+                if (error.code) {
+                    switch (error.code) {
+                        case 'CodeMismatchException':
+                            errorMessage = 'Invalid verification code. Please check and try again.';
+                            break;
+                        case 'ExpiredCodeException':
+                            errorMessage = 'Verification code has expired. Please request a new one.';
+                            break;
+                        case 'NotAuthorizedException':
+                            errorMessage = 'User is already confirmed';
+                            break;
+                        default:
+                            errorMessage = `Verification failed: ${error.message}`;
+                    }
+                } else {
+                    errorMessage = `Verification failed: ${error.message}`;
+                }
+                
+                showAlert(errorMessage, 'error');
+            }
+        }
+        
+        async function resendVerificationCode() {
+            const email = document.getElementById('verifyEmail').value.trim();
+            await resendVerificationCodeForEmail(email);
+        }
+        
+        async function resendVerificationCodeForEmail(email) {
+            if (!COGNITO_CONFIG) {
+                showAlert('Cognito configuration not loaded', 'error');
+                return;
+            }
+            
+            try {
+                AWS.config.region = COGNITO_CONFIG.region;
+                const cognitoidentityserviceprovider = new AWS.CognitoIdentityServiceProvider();
+                
+                const params = {
+                    ClientId: COGNITO_CONFIG.clientId,
+                    Username: email
+                };
+                
+                await cognitoidentityserviceprovider.resendConfirmationCode(params).promise();
+                showAlert('New verification code sent to your email!', 'success');
+                
+            } catch (error) {
+                console.error('Resend error:', error);
+                
+                let errorMessage = 'Failed to resend code';
+                if (error.code) {
+                    switch (error.code) {
+                        case 'UserNotFoundException':
+                            errorMessage = 'No account found with this email address';
+                            break;
+                        case 'InvalidParameterException':
+                            errorMessage = 'User is already confirmed';
+                            break;
+                        case 'TooManyRequestsException':
+                            errorMessage = 'Too many requests. Please wait before requesting another code';
+                            break;
+                        default:
+                            errorMessage = `Failed to resend code: ${error.message}`;
+                    }
+                } else {
+                    errorMessage = `Failed to resend code: ${error.message}`;
+                }
+                
+                showAlert(errorMessage, 'error');
+            }
         }
         
         async function signUp() {
@@ -530,11 +661,40 @@
                 
                 await cognitoidentityserviceprovider.signUp(params).promise();
                 showAlert('Account created! Please check your email for verification.', 'success');
-                hideSignUp();
+                
+                // Show verification section
+                document.getElementById('signUpSection').style.display = 'none';
+                document.getElementById('verifySection').style.display = 'block';
+                document.getElementById('verifyEmail').value = email;
                 
             } catch (error) {
                 console.error('Sign up error:', error);
-                showAlert('Sign up failed: ' + error.message, 'error');
+                
+                // Parse AWS error messages for better user feedback
+                let errorMessage = 'Sign up failed';
+                if (error.code) {
+                    switch (error.code) {
+                        case 'InvalidPasswordException':
+                            errorMessage = 'Password must be at least 8 characters with uppercase, lowercase, and numbers';
+                            break;
+                        case 'UsernameExistsException':
+                            // Check if user needs to confirm their account
+                            showAlert('Account exists but may need verification. Redirecting to verification...', 'success');
+                            document.getElementById('signUpSection').style.display = 'none';
+                            document.getElementById('verifySection').style.display = 'block';
+                            document.getElementById('verifyEmail').value = email;
+                            return;
+                        case 'InvalidParameterException':
+                            errorMessage = 'Invalid email address format';
+                            break;
+                        default:
+                            errorMessage = `Sign up failed: ${error.message}`;
+                    }
+                } else {
+                    errorMessage = `Sign up failed: ${error.message}`;
+                }
+                
+                showAlert(errorMessage, 'error');
             }
         }
         
@@ -584,7 +744,36 @@
                 
             } catch (error) {
                 console.error('Sign in error:', error);
-                showAlert('Sign in failed: ' + error.message, 'error');
+                
+                // Parse AWS error messages for better user feedback
+                let errorMessage = 'Sign in failed';
+                if (error.code) {
+                    switch (error.code) {
+                        case 'NotAuthorizedException':
+                            errorMessage = 'Invalid email or password';
+                            break;
+                        case 'UserNotConfirmedException':
+                            showAlert('Account not verified. Redirecting to verification...', 'success');
+                            document.getElementById('authPanel').style.display = 'block';
+                            document.getElementById('verifySection').style.display = 'block';
+                            document.getElementById('verifyEmail').value = email;
+                            // Send a new verification code
+                            resendVerificationCodeForEmail(email);
+                            return;
+                        case 'UserNotFoundException':
+                            errorMessage = 'No account found with this email address';
+                            break;
+                        case 'TooManyRequestsException':
+                            errorMessage = 'Too many failed attempts. Please try again later';
+                            break;
+                        default:
+                            errorMessage = `Sign in failed: ${error.message}`;
+                    }
+                } else {
+                    errorMessage = `Sign in failed: ${error.message}`;
+                }
+                
+                showAlert(errorMessage, 'error');
             }
         }
         

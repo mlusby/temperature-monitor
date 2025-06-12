@@ -9,7 +9,8 @@ const TABLE_NAME = process.env.DYNAMODB_TABLE || 'TemperatureReadings';
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-API-Key',
-    'Access-Control-Allow-Methods': 'OPTIONS,GET'
+    'Access-Control-Allow-Methods': 'OPTIONS,GET',
+    'Access-Control-Allow-Credentials': 'false'
 };
 
 exports.handler = async (event) => {
