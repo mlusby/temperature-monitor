@@ -154,6 +154,7 @@ Resources:
         Variables:
           DYNAMODB_TABLE: !Ref TemperatureReadingsTable
           ENVIRONMENT: !Ref Environment
+          CORS_ORIGIN: !Ref CorsOrigin
       Timeout: 30
       Tags:
         - Key: Environment
@@ -181,6 +182,7 @@ Resources:
         Variables:
           DYNAMODB_TABLE: !Ref TemperatureReadingsTable
           ENVIRONMENT: !Ref Environment
+          CORS_ORIGIN: !Ref CorsOrigin
       Timeout: 30
       Tags:
         - Key: Environment
@@ -208,6 +210,7 @@ Resources:
         Variables:
           DYNAMODB_TABLE: !Ref TemperatureReadingsTable
           ENVIRONMENT: !Ref Environment
+          CORS_ORIGIN: !Ref CorsOrigin
       Timeout: 30
       Tags:
         - Key: Environment
@@ -429,6 +432,7 @@ Resources:
     Properties:
       RestApiId: !Ref TemperatureMonitorApi
       StageName: !Ref Environment
+      Description: !Sub 'Deployment for CORS fix - ${AWS::StackName} at ${AWS::Region}'
 
 Outputs:
   ApiGatewayUrl:
