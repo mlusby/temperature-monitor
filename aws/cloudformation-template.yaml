@@ -13,6 +13,61 @@ Parameters:
     Description: 'CORS origin for API Gateway (use specific domain in production)'
 
 Resources:
+  # Cognito User Pool
+  TemperatureMonitorUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub 'TemperatureMonitor-Users-${Environment}'
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      UserPoolTags:
+        Environment: !Ref Environment
+        Application: TemperatureMonitor
+
+  # Cognito User Pool Client
+  TemperatureMonitorUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub 'TemperatureMonitor-Client-${Environment}'
+      UserPoolId: !Ref TemperatureMonitorUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - http://localhost:3000
+        - https://localhost:3000
+      LogoutURLs:
+        - http://localhost:3000
+        - https://localhost:3000
+      AllowedOAuthFlows:
+        - code
+        - implicit
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+
   # DynamoDB Table
   TemperatureReadingsTable:
     Type: AWS::DynamoDB::Table
@@ -170,6 +225,17 @@ Resources:
         Types:
           - REGIONAL
 
+  # Cognito Authorizer for API Gateway
+  TemperatureMonitorAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: !Sub 'TemperatureMonitor-Authorizer-${Environment}'
+      Type: COGNITO_USER_POOLS
+      RestApiId: !Ref TemperatureMonitorApi
+      ProviderARNs:
+        - !GetAtt TemperatureMonitorUserPool.Arn
+      IdentitySource: method.request.header.Authorization
+
   # API Gateway - Readings Resource
   ReadingsResource:
     Type: AWS::ApiGateway::Resource
@@ -193,8 +259,8 @@ Resources:
       RestApiId: !Ref TemperatureMonitorApi
       ResourceId: !Ref ReadingsResource
       HttpMethod: POST
-      AuthorizationType: NONE
-      ApiKeyRequired: true
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref TemperatureMonitorAuthorizer
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -211,8 +277,8 @@ Resources:
       RestApiId: !Ref TemperatureMonitorApi
       ResourceId: !Ref ReadingsResource
       HttpMethod: GET
-      AuthorizationType: NONE
-      ApiKeyRequired: true
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref TemperatureMonitorAuthorizer
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -229,8 +295,8 @@ Resources:
       RestApiId: !Ref TemperatureMonitorApi
       ResourceId: !Ref SessionsResource
       HttpMethod: GET
-      AuthorizationType: NONE
-      ApiKeyRequired: true
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref TemperatureMonitorAuthorizer
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -390,3 +456,21 @@ Outputs:
     Value: !Ref TemperatureMonitorApiKey
     Export:
       Name: !Sub '${AWS::StackName}-ApiKeyId'
+
+  UserPoolId:
+    Description: 'Cognito User Pool ID'
+    Value: !Ref TemperatureMonitorUserPool
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolId'
+
+  UserPoolClientId:
+    Description: 'Cognito User Pool Client ID'
+    Value: !Ref TemperatureMonitorUserPoolClient
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolClientId'
+
+  CognitoRegion:
+    Description: 'AWS Region for Cognito'
+    Value: !Ref AWS::Region
+    Export:
+      Name: !Sub '${AWS::StackName}-CognitoRegion'

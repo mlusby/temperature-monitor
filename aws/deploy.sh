@@ -308,24 +308,28 @@ fi
 
 echo "✅ All Lambda functions updated successfully"
 
-# Get API Gateway URL and API Key
+# Get API Gateway URL and Cognito configuration
 API_URL=$(aws cloudformation describe-stacks \
     --stack-name $STACK_NAME \
     --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
     --output text \
     --region $REGION)
 
-API_KEY_ID=$(aws cloudformation describe-stacks \
+USER_POOL_ID=$(aws cloudformation describe-stacks \
     --stack-name $STACK_NAME \
-    --query 'Stacks[0].Outputs[?OutputKey==`ApiKeyId`].OutputValue' \
+    --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' \
     --output text \
     --region $REGION)
 
-# Get the actual API key value
-API_KEY_VALUE=$(aws apigateway get-api-key \
-    --api-key $API_KEY_ID \
-    --include-value \
-    --query 'value' \
+USER_POOL_CLIENT_ID=$(aws cloudformation describe-stacks \
+    --stack-name $STACK_NAME \
+    --query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
+    --output text \
+    --region $REGION)
+
+COGNITO_REGION=$(aws cloudformation describe-stacks \
+    --stack-name $STACK_NAME \
+    --query 'Stacks[0].Outputs[?OutputKey==`CognitoRegion`].OutputValue' \
     --output text \
     --region $REGION)
 
@@ -335,10 +339,11 @@ echo ""
 echo "📋 Deployment Summary:"
 echo "====================="
 echo "API Gateway URL: $API_URL"
-echo "API Key ID: $API_KEY_ID"
-echo "API Key Value: $API_KEY_VALUE"
+echo "User Pool ID: $USER_POOL_ID"
+echo "User Pool Client ID: $USER_POOL_CLIENT_ID"
+echo "Cognito Region: $COGNITO_REGION"
 echo ""
-echo "Endpoints:"
+echo "Endpoints (require Cognito authentication):"
 echo "Store Reading: POST $API_URL/readings"
 echo "Get Readings:  GET  $API_URL/readings?sessionId=<sessionId>"
 echo "List Sessions: GET  $API_URL/sessions"
@@ -348,26 +353,22 @@ echo "1. Copy your .env.example to .env:"
 echo "   cp .env.example .env"
 echo ""
 echo "2. Update your .env file with these values:"
-echo "   TEMPERATURE_MONITOR_API_KEY=$API_KEY_VALUE"
 echo "   TEMPERATURE_MONITOR_API_URL=$API_URL"
+echo "   COGNITO_USER_POOL_ID=$USER_POOL_ID"
+echo "   COGNITO_USER_POOL_CLIENT_ID=$USER_POOL_CLIENT_ID"
+echo "   AWS_REGION=$COGNITO_REGION"
 echo ""
 echo "3. Start the secure application:"
 echo "   npm install && npm start"
 echo ""
 echo "4. Access your application at: http://localhost:3000"
+echo "5. Sign up for a new account or sign in with existing credentials"
 echo ""
-echo "🧪 Test Commands (with API key):"
-echo "# Store a reading:"
-echo "curl -X POST $API_URL/readings \\"
-echo "  -H 'Content-Type: application/json' \\"
-echo "  -H 'X-API-Key: $API_KEY_VALUE' \\"
-echo "  -d '{\"sessionId\":\"test-session\",\"sensorName\":\"Sensor1\",\"temperature\":25.5,\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"}'"
-echo ""
-echo "# Get readings:"
-echo "curl -H 'X-API-Key: $API_KEY_VALUE' '$API_URL/readings?sessionId=test-session'"
-echo ""
-echo "# List sessions:"
-echo "curl -H 'X-API-Key: $API_KEY_VALUE' '$API_URL/sessions'"
+echo "🧪 Test Commands (require Cognito authentication token):"
+echo "# Note: API now requires Cognito authentication"
+echo "# Use the web application at http://localhost:3000 to test functionality"
+echo "# Or obtain a Cognito ID token and use:"
+echo "# curl -H 'Authorization: Bearer <ID_TOKEN>' '$API_URL/readings'"
 
 # Cleanup
 rm -f lambda-functions.zip

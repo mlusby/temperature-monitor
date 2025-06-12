@@ -6,6 +6,7 @@
     <title>Temperature Monitor</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1563.0.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -255,11 +256,61 @@
         <div class="status-bar">
             <span id="currentSession">Current Session: New Session</span>
             <span id="dataCount">Readings: 0</span>
+            <button onclick="signOut()" class="btn-danger" style="margin-left: auto;">Sign Out</button>
         </div>
 
         <div id="alertContainer"></div>
 
-        <div class="controls-panel">
+        <!-- Authentication Panel -->
+        <div id="authPanel" class="controls-panel">
+            <div class="control-row">
+                <h3>Sign In to Temperature Monitor</h3>
+            </div>
+            <div class="control-row">
+                <div class="control-group">
+                    <label for="authEmail">Email:</label>
+                    <input type="email" id="authEmail" placeholder="your@email.com">
+                </div>
+                <div class="control-group">
+                    <label for="authPassword">Password:</label>
+                    <input type="password" id="authPassword" placeholder="Password">
+                </div>
+                <div class="control-group">
+                    <label>&nbsp;</label>
+                    <button onclick="signIn()" class="btn-success">Sign In</button>
+                </div>
+                <div class="control-group">
+                    <label>&nbsp;</label>
+                    <button onclick="showSignUp()" class="btn-secondary">New User? Sign Up</button>
+                </div>
+            </div>
+            <div id="signUpSection" style="display: none;">
+                <div class="control-row">
+                    <h4>Create Account</h4>
+                </div>
+                <div class="control-row">
+                    <div class="control-group">
+                        <label for="signUpEmail">Email:</label>
+                        <input type="email" id="signUpEmail" placeholder="your@email.com">
+                    </div>
+                    <div class="control-group">
+                        <label for="signUpPassword">Password:</label>
+                        <input type="password" id="signUpPassword" placeholder="Password (8+ chars)">
+                    </div>
+                    <div class="control-group">
+                        <label>&nbsp;</label>
+                        <button onclick="signUp()" class="btn-success">Sign Up</button>
+                    </div>
+                    <div class="control-group">
+                        <label>&nbsp;</label>
+                        <button onclick="hideSignUp()" class="btn-secondary">Back to Sign In</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Application (hidden until authenticated) -->
+        <div id="appPanel" style="display: none;" class="controls-panel">
             <div class="control-row">
                 <div class="control-group">
                     <label for="sensorName">Sensor Name:</label>
@@ -375,8 +426,11 @@
         let API_BASE_URL = null;
         let API_ENDPOINTS = null;
         
-        // API Key - Retrieved securely at runtime
-        let API_KEY = null;
+        // Authentication - Cognito configuration
+        let COGNITO_CONFIG = null;
+        let cognitoUser = null;
+        let cognitoSession = null;
+        let idToken = null;
         
         // Load secure configuration
         async function loadSecureConfig() {
@@ -385,7 +439,6 @@
                 const response = await fetch('/api/config');
                 if (response.ok) {
                     const config = await response.json();
-                    API_KEY = config.apiKey;
                     API_BASE_URL = config.apiUrl;
                     
                     // Set up API endpoints
@@ -395,18 +448,27 @@
                         listSessions: `${API_BASE_URL}/sessions`
                     };
                     
+                    // Set up Cognito configuration
+                    COGNITO_CONFIG = {
+                        userPoolId: config.userPoolId,
+                        clientId: config.userPoolClientId,
+                        region: config.cognitoRegion
+                    };
+                    
                     return config;
                 }
             } catch (error) {
                 console.warn('Could not load config from server:', error);
             }
             
-            // Fallback: prompt user for API configuration
-            API_KEY = prompt('Please enter your API key:');
+            // Fallback: prompt user for configuration
             API_BASE_URL = prompt('Please enter your API Gateway URL:');
+            const userPoolId = prompt('Please enter your Cognito User Pool ID:');
+            const clientId = prompt('Please enter your Cognito Client ID:');
+            const region = prompt('Please enter your AWS region:');
             
-            if (!API_KEY || !API_BASE_URL) {
-                showAlert('API key and URL are required for functionality', 'error');
+            if (!API_BASE_URL || !userPoolId || !clientId || !region) {
+                showAlert('All configuration values are required for functionality', 'error');
                 return null;
             }
             
@@ -417,7 +479,130 @@
                 listSessions: `${API_BASE_URL}/sessions`
             };
             
-            return { apiKey: API_KEY, apiUrl: API_BASE_URL };
+            // Set up Cognito configuration
+            COGNITO_CONFIG = {
+                userPoolId: userPoolId,
+                clientId: clientId,
+                region: region
+            };
+            
+            return { apiUrl: API_BASE_URL, userPoolId, userPoolClientId: clientId, cognitoRegion: region };
+        }
+        
+        // Authentication functions
+        function showSignUp() {
+            document.getElementById('signUpSection').style.display = 'block';
+        }
+        
+        function hideSignUp() {
+            document.getElementById('signUpSection').style.display = 'none';
+        }
+        
+        async function signUp() {
+            const email = document.getElementById('signUpEmail').value.trim();
+            const password = document.getElementById('signUpPassword').value;
+            
+            if (!email || !password) {
+                showAlert('Please enter email and password', 'error');
+                return;
+            }
+            
+            if (!COGNITO_CONFIG) {
+                showAlert('Cognito configuration not loaded', 'error');
+                return;
+            }
+            
+            try {
+                AWS.config.region = COGNITO_CONFIG.region;
+                const cognitoidentityserviceprovider = new AWS.CognitoIdentityServiceProvider();
+                
+                const params = {
+                    ClientId: COGNITO_CONFIG.clientId,
+                    Username: email,
+                    Password: password,
+                    UserAttributes: [
+                        {
+                            Name: 'email',
+                            Value: email
+                        }
+                    ]
+                };
+                
+                await cognitoidentityserviceprovider.signUp(params).promise();
+                showAlert('Account created! Please check your email for verification.', 'success');
+                hideSignUp();
+                
+            } catch (error) {
+                console.error('Sign up error:', error);
+                showAlert('Sign up failed: ' + error.message, 'error');
+            }
+        }
+        
+        async function signIn() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+            
+            if (!email || !password) {
+                showAlert('Please enter email and password', 'error');
+                return;
+            }
+            
+            if (!COGNITO_CONFIG) {
+                showAlert('Cognito configuration not loaded', 'error');
+                return;
+            }
+            
+            try {
+                AWS.config.region = COGNITO_CONFIG.region;
+                const cognitoidentityserviceprovider = new AWS.CognitoIdentityServiceProvider();
+                
+                const params = {
+                    AuthFlow: 'USER_PASSWORD_AUTH',
+                    ClientId: COGNITO_CONFIG.clientId,
+                    AuthParameters: {
+                        USERNAME: email,
+                        PASSWORD: password
+                    }
+                };
+                
+                const result = await cognitoidentityserviceprovider.initiateAuth(params).promise();
+                
+                if (result.AuthenticationResult) {
+                    idToken = result.AuthenticationResult.IdToken;
+                    showAlert('Successfully signed in!', 'success');
+                    
+                    // Hide auth panel and show app
+                    document.getElementById('authPanel').style.display = 'none';
+                    document.getElementById('appPanel').style.display = 'block';
+                    
+                    // Initialize the main application
+                    await initMainApp();
+                    
+                } else {
+                    showAlert('Authentication failed', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Sign in error:', error);
+                showAlert('Sign in failed: ' + error.message, 'error');
+            }
+        }
+        
+        function signOut() {
+            idToken = null;
+            cognitoUser = null;
+            cognitoSession = null;
+            
+            // Clear application data
+            temperatureData = {};
+            visibilitySettings = {};
+            rateOfRiseSettings = {};
+            
+            // Show auth panel and hide app
+            document.getElementById('authPanel').style.display = 'block';
+            document.getElementById('appPanel').style.display = 'none';
+            
+            showAlert('Signed out successfully', 'success');
         }
         
         // Request configuration
@@ -429,21 +614,19 @@
         
         // Make API request with retry logic
         async function makeAPIRequest(url, options = {}, retries = REQUEST_CONFIG.maxRetries) {
-            // Ensure API key is loaded
-            if (!API_KEY) {
-                await loadSecureConfig();
-                if (!API_KEY) {
-                    throw new Error('API key not available');
-                }
+            // Ensure user is authenticated
+            if (!idToken) {
+                throw new Error('User not authenticated');
             }
             
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), REQUEST_CONFIG.timeout);
                 
-                // Add API key to headers
+                // Add authorization token to headers
                 const headers = {
-                    'X-API-Key': API_KEY,
+                    'Authorization': `Bearer ${idToken}`,
+                    'Content-Type': 'application/json',
                     ...options.headers
                 };
                 
@@ -492,11 +675,20 @@
             '#1abc9c', '#34495e', '#e67e22', '#95a5a6', '#d35400'
         ];
 
-        // Initialize the application
+        // Initialize the application (called on page load)
         async function init() {
             // Load secure configuration first
             await loadSecureConfig();
             
+            // Show authentication panel by default
+            document.getElementById('authPanel').style.display = 'block';
+            document.getElementById('appPanel').style.display = 'none';
+            
+            console.log('Application initialized, ready for authentication');
+        }
+        
+        // Initialize the main application (called after authentication)
+        async function initMainApp() {
             // Set current session start time
             const now = new Date();
             const localISOTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
@@ -509,10 +701,8 @@
             // Initialize chart
             initChart();
             
-            // Load available sessions from API (only if API key is available)
-            if (API_KEY) {
-                refreshSessions();
-            }
+            // Load available sessions from API
+            refreshSessions();
             
             // Create backup of current state
             setInterval(createBackup, 30000); // Backup every 30 seconds if data exists

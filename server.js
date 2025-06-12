@@ -88,15 +88,17 @@ const server = http.createServer((req, res) => {
     // API endpoint for secure configuration
     if (url.pathname === '/api/config' && req.method === 'GET') {
         const config = {
-            apiKey: process.env.TEMPERATURE_MONITOR_API_KEY,
             apiUrl: process.env.TEMPERATURE_MONITOR_API_URL || 
-                   'https://pnx7qs4uve.execute-api.us-east-1.amazonaws.com/prod'
+                   'https://pnx7qs4uve.execute-api.us-east-1.amazonaws.com/prod',
+            userPoolId: process.env.COGNITO_USER_POOL_ID,
+            userPoolClientId: process.env.COGNITO_USER_POOL_CLIENT_ID,
+            cognitoRegion: process.env.AWS_REGION || 'us-east-1'
         };
         
-        if (!config.apiKey) {
+        if (!config.userPoolId || !config.userPoolClientId) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ 
-                error: 'API key not configured. Set TEMPERATURE_MONITOR_API_KEY environment variable.' 
+                error: 'Cognito configuration not complete. Set COGNITO_USER_POOL_ID and COGNITO_USER_POOL_CLIENT_ID environment variables.' 
             }));
             return;
         }
@@ -118,11 +120,15 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
     console.log(`Temperature Monitor Server running at http://localhost:${PORT}/`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`API Key configured: ${!!process.env.TEMPERATURE_MONITOR_API_KEY}`);
+    console.log(`Cognito configured: ${!!(process.env.COGNITO_USER_POOL_ID && process.env.COGNITO_USER_POOL_CLIENT_ID)}`);
     console.log(`Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
     
-    if (!process.env.TEMPERATURE_MONITOR_API_KEY) {
-        console.warn('⚠️  WARNING: TEMPERATURE_MONITOR_API_KEY not set!');
-        console.warn('   Copy .env.example to .env and configure your API key');
+    if (!process.env.COGNITO_USER_POOL_ID || !process.env.COGNITO_USER_POOL_CLIENT_ID) {
+        console.warn('⚠️  WARNING: Cognito configuration incomplete!');
+        console.warn('   Copy .env.example to .env and configure your Cognito values:');
+        console.warn('   - COGNITO_USER_POOL_ID');
+        console.warn('   - COGNITO_USER_POOL_CLIENT_ID');
+        console.warn('   - AWS_REGION');
+        console.warn('   - TEMPERATURE_MONITOR_API_URL');
     }
 });
