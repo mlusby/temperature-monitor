@@ -9,7 +9,7 @@ Parameters:
   
   CorsOrigin:
     Type: String
-    Default: '*'
+    Default: 'http://localhost:3000'
     Description: 'CORS origin for API Gateway (use specific domain in production)'
 
 Resources:
@@ -270,8 +270,6 @@ Resources:
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${StoreReadingFunction.Arn}/invocations'
       MethodResponses:
         - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Origin: true
 
   # API Gateway - Get Readings Method (GET)
   GetReadingsMethod:
@@ -288,8 +286,6 @@ Resources:
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetReadingsFunction.Arn}/invocations'
       MethodResponses:
         - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Origin: true
 
   # API Gateway - List Sessions Method (GET)
   ListSessionsMethod:
@@ -306,8 +302,6 @@ Resources:
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListSessionsFunction.Arn}/invocations'
       MethodResponses:
         - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Origin: true
 
   # CORS Options Methods
   ReadingsOptionsMethod:
@@ -432,7 +426,38 @@ Resources:
     Properties:
       RestApiId: !Ref TemperatureMonitorApi
       StageName: !Ref Environment
-      Description: !Sub 'Deployment for CORS hardcoded localhost - ${AWS::StackName} at ${AWS::Region} - v4'
+      Description: !Sub 'Deployment for CORS Gateway Responses - ${AWS::StackName} at ${AWS::Region} - v8'
+
+  # Gateway Responses for CORS on error responses
+  UnauthorizedGatewayResponse:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref TemperatureMonitorApi
+      ResponseType: UNAUTHORIZED
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'http://localhost:3000'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+
+  ForbiddenGatewayResponse:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref TemperatureMonitorApi
+      ResponseType: ACCESS_DENIED
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'http://localhost:3000'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+
+  DefaultGatewayResponse:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref TemperatureMonitorApi
+      ResponseType: DEFAULT_4XX
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'http://localhost:3000'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
 
 Outputs:
   ApiGatewayUrl:

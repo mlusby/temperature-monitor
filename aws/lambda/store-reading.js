@@ -7,7 +7,7 @@ const dynamoDB = DynamoDBDocumentClient.from(client);
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE || 'TemperatureReadings-prod';
 const CORS_HEADERS = {
-    'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '*',
+    'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || 'http://localhost:3000',
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-API-Key',
     'Access-Control-Allow-Methods': 'OPTIONS,POST',
     'Access-Control-Allow-Credentials': 'false'
