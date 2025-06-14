@@ -57,3 +57,22 @@ Debugging DynamoDB save issue where temperature readings weren't being stored de
 - Updated CLAUDE.md to include Git commit workflow for file changes
 - Offered to commit the cleanup changes
 **Outcome**: Removed unused debugging file and established Git commit workflow
+
+### Interaction 7 - 2025-06-14 14:55
+**User Request**: Calls are showing in CloudWatch, but values are still not being stored in DynamoDB
+**Tokens Used**: ~1,500
+**Actions Taken**:
+- Checked recent Lambda logs for successful execution
+- Verified DynamoDB table existence and permissions
+- Investigated potential DynamoDB write issues
+**Outcome**: Identified need to check DynamoDB permissions and table configuration
+
+### Interaction 8 - 2025-06-14 15:00
+**User Request**: Fix DynamoDB save issue continuation
+**Tokens Used**: ~2,000
+**Actions Taken**:
+- Discovered Lambda handler was pointing to wrong file (test-store.handler vs store-reading.handler)
+- Fixed CloudFormation template handler reference
+- Redeployed stack with correct handler configuration
+- Verified function now processes requests successfully with AWS SDK v3
+**Outcome**: Fixed Lambda handler issue - function now successfully processes save requests

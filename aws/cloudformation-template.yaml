@@ -140,7 +140,7 @@ Resources:
     Properties:
       FunctionName: !Sub 'TemperatureMonitor-StoreReading-${Environment}'
       Runtime: nodejs18.x
-      Handler: test-store.handler
+      Handler: store-reading.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         ZipFile: |
