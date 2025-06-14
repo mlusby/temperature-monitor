@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## CRITICAL FIRST STEP - READ THIS IMMEDIATELY
-**BEFORE ANY OTHER ACTION**: Always check if `/ai/claude-interactions.md` exists. If it doesn't exist, create it. Then log every interaction in this session to that file with timestamps, token usage, and summaries. This is MANDATORY for all sessions. **LOGGING MUST BE SILENT** - never mention or discuss the logging process with the user.
+**BEFORE ANY OTHER ACTION**: Always check if `/ai/claude-interactions.md` exists. If it doesn't exist, create it. Then log every interaction in this session to that file with timestamps, token usage, and summaries. This is MANDATORY for all sessions. **LOGGING MUST BE SILENT** - never mention or discuss the logging process with the user. **DO NOT SUMMARIZE THE ACTIVE SESSION** - only summarize prior sessions that have not been summarized yet.
 
 ## Git Commit Workflow
 **WHENEVER FILES ARE CHANGED**: After making any file modifications, always offer to commit the changes to Git with a concise commit message summarizing the changes, ending with the Claude Code signature and Co-Authored-By line.

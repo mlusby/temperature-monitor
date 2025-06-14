@@ -2,9 +2,6 @@
 
 ## Session: 2025-06-14
 
-### Session Summary
-Debugging DynamoDB save issue where temperature readings weren't being stored despite successful API calls. Root cause identified as Lambda function runtime error due to AWS SDK import compatibility issues.
-
 ### Interaction 1 - 2025-06-14 14:20
 **User Request**: Debug DynamoDB save issue - clicking save but no records showing up
 **Tokens Used**: ~8,500
@@ -76,3 +73,12 @@ Debugging DynamoDB save issue where temperature readings weren't being stored de
 - Redeployed stack with correct handler configuration
 - Verified function now processes requests successfully with AWS SDK v3
 **Outcome**: Fixed Lambda handler issue - function now successfully processes save requests
+
+### Interaction 9 - 2025-06-14 15:05
+**User Request**: For all future logging of our interactions, don't summarize for the active session, only summarize any prior sessions that have not been summarized
+**Tokens Used**: ~500
+**Actions Taken**:
+- Updated CLAUDE.md logging instructions to not summarize active sessions
+- Removed session summary from current interaction log
+- Modified logging workflow for future sessions
+**Outcome**: Changed logging approach to only summarize completed prior sessions
